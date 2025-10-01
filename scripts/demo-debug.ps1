@@ -38,46 +38,31 @@ function Show-HttpErrorDetails([System.Management.Automation.ErrorRecord]$err) {
 }
 
 function Save-Logs {
-  $LogDir = Join-Path $PSScriptRoot 'logs'
-  New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-
   Write-Host "==> guardando snapshots de logs…" -ForegroundColor Cyan
-  docker compose logs --no-color gateway  --since=10m | Out-File (Join-Path $LogDir 'gateway.snapshot.log')  -Encoding UTF8
-  docker compose logs --no-color auth-api --since=10m | Out-File (Join-Path $LogDir 'auth-api.snapshot.log') -Encoding UTF8
+  New-Item -ItemType Directory -Force -Path .\scripts\logs | Out-Null
+  docker compose logs --no-color gateway  --since=10m | Out-File .\scripts\logs\gateway.snapshot.log  -Encoding UTF8
+  docker compose logs --no-color auth-api --since=10m | Out-File .\scripts\logs\auth-api.snapshot.log -Encoding UTF8
 
   if ($script:gwJob) {
-    Stop-Job $script:gwJob | Out-Null
-    Receive-Job $script:gwJob | Out-Null
-    Remove-Job  $script:gwJob | Out-Null
+    try { Stop-Job -Job $script:gwJob -ErrorAction SilentlyContinue | Out-Null } catch {}
+    try { Receive-Job -Job $script:gwJob -ErrorAction SilentlyContinue | Out-Null } catch {}
   }
   if ($script:auJob) {
-    Stop-Job $script:auJob | Out-Null
-    Receive-Job $script:auJob | Out-Null
-    Remove-Job  $script:auJob | Out-Null
+    try { Stop-Job -Job $script:auJob -ErrorAction SilentlyContinue | Out-Null } catch {}
+    try { Receive-Job -Job $script:auJob -ErrorAction SilentlyContinue | Out-Null } catch {}
   }
-  Write-Host ("Listo. Revisá la carpeta {0}" -f $LogDir) -ForegroundColor Cyan
+  Write-Host "Listo. Revisá la carpeta $(Resolve-Path .\scripts\logs)" -ForegroundColor Cyan
 }
 
 function Main {
-  $LogDir = Join-Path $PSScriptRoot 'logs'
-  New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+  New-Item -ItemType Directory -Force -Path .\scripts\logs | Out-Null
 
   Write-Host "==> (re)build + up" -ForegroundColor Cyan
   docker compose up -d --build | Out-Null
 
   Write-Host "==> tails de logs (gateway y auth-api)" -ForegroundColor Cyan
-  $gwLogFile = Join-Path $LogDir 'gateway.tail.log'
-  $auLogFile = Join-Path $LogDir 'auth-api.tail.log'
-
-  $script:gwJob = Start-Job -ScriptBlock {
-    param($file)
-    docker compose logs -f --no-color gateway 2>&1 | Tee-Object -FilePath $file
-  } -ArgumentList $gwLogFile
-
-  $script:auJob = Start-Job -ScriptBlock {
-    param($file)
-    docker compose logs -f --no-color auth-api 2>&1 | Tee-Object -FilePath $file
-  } -ArgumentList $auLogFile
+  $script:gwJob = Start-Job -ScriptBlock { docker compose logs -f --no-color gateway 2>&1 | Tee-Object -FilePath ".\scripts\logs\gateway.tail.log" }
+  $script:auJob = Start-Job -ScriptBlock { docker compose logs -f --no-color auth-api 2>&1 | Tee-Object -FilePath ".\scripts\logs\auth-api.tail.log" }
 
   Write-Host "==> esperando gateway $Base/health" -ForegroundColor Yellow
   if (-not (Wait-For-Http200 "$Base/health" $MaxRetries $DelayMs)) {
@@ -86,28 +71,31 @@ function Main {
     return
   }
 
+  # ==== Diag rápido de upstreams ====
+  Write-Host "==> Diags rápidos" -ForegroundColor Yellow
+  foreach ($p in @("auth","usuarios","proyectos","tareas")) {
+    try {
+      $u = "$Base/$p/health"
+      $r = Invoke-WebRequest $u -UseBasicParsing -TimeoutSec 3
+      Write-Host ("{0} => {1}" -f $u, $r.StatusCode) -ForegroundColor Gray
+    } catch {
+      Write-Host ("{0} => ERROR" -f $u) -ForegroundColor DarkYellow
+    }
+  }
+
+  # ===== flujo de demo con email único =====
   $Suffix = [Guid]::NewGuid().ToString("N").Substring(0,6)
   $Email = "linus+$Suffix@example.com"
   $Pwd   = "secret"
 
   try {
-    $null = Invoke-WebRequest "$Base/auth/diag" -UseBasicParsing -TimeoutSec 2
-  } catch {
-    Start-Sleep -Seconds 2
-  }
-
-  try {
     Write-Host "==> Register ($Email)" -ForegroundColor Green
     $reg = Invoke-RestMethod "$Base/auth/register" -Method POST -ContentType 'application/json' -Body (@{
       nombre = "Linus"; email = $Email; password = $Pwd } | ConvertTo-Json)
-    Write-Host ("Usuario id={0}" -f $reg.id) -ForegroundColor DarkGreen
+    if ($reg.id) { Write-Host ("Usuario id={0}" -f $reg.id) -ForegroundColor DarkGreen }
   } catch {
     Write-Host "Register lanzó error:" -ForegroundColor DarkYellow
     Show-HttpErrorDetails $_
-    Write-Host "`n==> Últimos logs auth-api (3m)" -ForegroundColor Yellow
-    docker compose logs --no-color auth-api --since=3m
-    Write-Host "`n==> Últimos logs gateway (3m)" -ForegroundColor Yellow
-    docker compose logs --no-color gateway --since=3m
     Save-Logs
     return
   }
@@ -121,10 +109,6 @@ function Main {
   } catch {
     Write-Host "Login lanzó error:" -ForegroundColor Red
     Show-HttpErrorDetails $_
-    Write-Host "`n==> Últimos logs auth-api (3m)" -ForegroundColor Yellow
-    docker compose logs --no-color auth-api --since=3m
-    Write-Host "`n==> Últimos logs gateway (3m)" -ForegroundColor Yellow
-    docker compose logs --no-color gateway --since=3m
     Save-Logs
     return
   }
@@ -132,6 +116,7 @@ function Main {
   Write-Host "==> /auth/me" -ForegroundColor Green
   Invoke-RestMethod "$Base/auth/me" -Headers @{ Authorization = "Bearer $Token" } | ConvertTo-Json -Depth 5 | Write-Output
 
+  # Crear proyecto (ojo: gateway ahora STRIP del prefijo)
   Write-Host "==> Crear proyecto" -ForegroundColor Green
   $proj = Invoke-RestMethod "$Base/proyectos/" -Method POST `
     -Headers @{ Authorization = "Bearer $Token" } `
