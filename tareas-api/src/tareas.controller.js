@@ -1,51 +1,123 @@
-import { pool } from "./index.js";
+import pool from "./db.js";
 
-// POST "/" body: { proyecto_id, titulo }
-export async function crearTarea(req, res) {
-  try {
-    const { proyecto_id, titulo } = req.body || {};
-    if (!proyecto_id || !titulo) {
-      return res.status(400).json({ error: "bad_request" });
-    }
-    const [r] = await pool.query(
-      "INSERT INTO proyectos_db.tareas(proyecto_id,titulo,estado,asignado_a_usuario_id) VALUES(?,?, 'todo', NULL)",
-      [proyecto_id, titulo]
-    );
-    res.status(201).json({ id: r.insertId, proyecto_id, titulo, estado: "todo" });
-  } catch (e) {
-    console.error("crearTarea error:", e);
-    res.status(500).json({ error: "internal_error" });
-  }
-}
-
-// PATCH "/:id/estado" body: { estado: 'todo'|'doing'|'done' }
-export async function cambiarEstado(req, res) {
-  try {
-    const id = Number(req.params.id);
-    const { estado } = req.body || {};
-    if (!id || !["todo", "doing", "done"].includes(estado)) {
-      return res.status(400).json({ error: "bad_request" });
-    }
-    await pool.query("UPDATE proyectos_db.tareas SET estado=? WHERE id=?", [estado, id]);
-    res.json({ id, estado });
-  } catch (e) {
-    console.error("cambiarEstado error:", e);
-    res.status(500).json({ error: "internal_error" });
-  }
-}
-
-// GET "/" query: ?proyecto_id=#
-export async function listarPorProyecto(req, res) {
-  try {
-    const proyecto_id = Number(req.query.proyecto_id || 0);
-    if (!proyecto_id) return res.status(400).json({ error: "bad_request" });
+// GET /?proyecto_id=#
+export async function listTasks(req, res) {
+  const { proyecto_id } = req.query || {};
+  if (proyecto_id) {
     const [rows] = await pool.query(
-      "SELECT id, proyecto_id, titulo, estado, asignado_a_usuario_id, creado_en FROM proyectos_db.tareas WHERE proyecto_id=? ORDER BY id DESC",
+      `SELECT id, proyecto_id, titulo, estado, asignado_a_usuario_id, creado_en
+       FROM proyectos_db.tareas
+       WHERE proyecto_id = ?
+       ORDER BY id DESC`,
       [proyecto_id]
     );
-    res.json(rows);
-  } catch (e) {
-    console.error("listarPorProyecto error:", e);
-    res.status(500).json({ error: "internal_error" });
+    return res.json(rows);
   }
+  const [rows] = await pool.query(
+    `SELECT id, proyecto_id, titulo, estado, asignado_a_usuario_id, creado_en
+     FROM proyectos_db.tareas
+     ORDER BY id DESC`
+  );
+  return res.json(rows);
+}
+
+// GET /:id
+export async function getTask(req, res) {
+  const { id } = req.params;
+  const [rows] = await pool.query(
+    `SELECT id, proyecto_id, titulo, estado, asignado_a_usuario_id, creado_en
+     FROM proyectos_db.tareas
+     WHERE id = ?`,
+    [id]
+  );
+  const t = rows[0];
+  if (!t) return res.status(404).json({ error: "not_found" });
+  return res.json(t);
+}
+
+// POST /
+export async function createTask(req, res) {
+  const { proyecto_id, titulo, asignado_a_usuario_id } = req.body || {};
+  if (!proyecto_id || !titulo) return res.status(400).json({ error: "bad_request" });
+
+  const [r] = await pool.query(
+    `INSERT INTO proyectos_db.tareas(proyecto_id, titulo, asignado_a_usuario_id)
+     VALUES(?,?,?)`,
+    [proyecto_id, titulo, asignado_a_usuario_id ?? null]
+  );
+
+  const [rows] = await pool.query(
+    `SELECT id, proyecto_id, titulo, estado, asignado_a_usuario_id, creado_en
+     FROM proyectos_db.tareas
+     WHERE id = ?`,
+    [r.insertId]
+  );
+  return res.status(201).json(rows[0]);
+}
+
+// PUT /:id
+export async function updateTask(req, res) {
+  const { id } = req.params;
+  const { proyecto_id, titulo, estado, asignado_a_usuario_id } = req.body || {};
+
+  if (!proyecto_id && !titulo && !estado && typeof asignado_a_usuario_id === "undefined") {
+    return res.status(400).json({ error: "bad_request" });
+  }
+
+  const fields = [];
+  const params = [];
+  if (proyecto_id) { fields.push("proyecto_id = ?"); params.push(proyecto_id); }
+  if (titulo) { fields.push("titulo = ?"); params.push(titulo); }
+  if (estado) { fields.push("estado = ?"); params.push(estado); }
+  if (typeof asignado_a_usuario_id !== "undefined") {
+    fields.push("asignado_a_usuario_id = ?");
+    params.push(asignado_a_usuario_id);
+  }
+  params.push(id);
+
+  const [r] = await pool.query(
+    `UPDATE proyectos_db.tareas SET ${fields.join(", ")} WHERE id = ?`,
+    params
+  );
+  if (r.affectedRows === 0) return res.status(404).json({ error: "not_found" });
+
+  const [rows] = await pool.query(
+    `SELECT id, proyecto_id, titulo, estado, asignado_a_usuario_id, creado_en
+     FROM proyectos_db.tareas
+     WHERE id = ?`,
+    [id]
+  );
+  return res.json(rows[0]);
+}
+
+// PATCH /:id/estado
+export async function patchTaskState(req, res) {
+  const { id } = req.params;
+  const { estado } = req.body || {};
+  if (!estado) return res.status(400).json({ error: "bad_request" });
+
+  const [r] = await pool.query(
+    `UPDATE proyectos_db.tareas SET estado = ? WHERE id = ?`,
+    [estado, id]
+  );
+  if (r.affectedRows === 0) return res.status(404).json({ error: "not_found" });
+
+  const [rows] = await pool.query(
+    `SELECT id, proyecto_id, titulo, estado, asignado_a_usuario_id, creado_en
+     FROM proyectos_db.tareas
+     WHERE id = ?`,
+    [id]
+  );
+  return res.json(rows[0]);
+}
+
+// DELETE /:id
+export async function deleteTask(req, res) {
+  const { id } = req.params;
+  const [r] = await pool.query(
+    `DELETE FROM proyectos_db.tareas WHERE id = ?`,
+    [id]
+  );
+  if (r.affectedRows === 0) return res.status(404).json({ error: "not_found" });
+  return res.json({ ok: 1 });
 }
