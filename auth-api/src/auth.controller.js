@@ -2,6 +2,16 @@ import { signToken } from "./jwt.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import pool from "./db.js";
 
+export async function diag(_req, res) {
+  try {
+    const [rows] = await pool.query("SELECT 1 AS ok");
+    res.json({ db: "up", result: rows[0] });
+  } catch (e) {
+    console.error("diag error:", e);
+    res.status(500).json({ db: "down", error: "db_error" });
+  }
+}
+
 export async function register(req, res) {
   const { nombre, email, password } = req.body || {};
   if (!nombre || !email || !password) {
@@ -22,37 +32,19 @@ export async function register(req, res) {
 export async function login(req, res) {
   try {
     const { email, password } = req.body || {};
-    if (!email || !password) {
-      return res.status(400).json({ error: "bad_request" });
-    }
+    if (!email || !password) return res.status(400).json({ error: "bad_request" });
 
-    // Buscar usuario por email
     const [rows] = await pool.query(
       "SELECT id, nombre, email, hash FROM usuarios_db.usuarios WHERE email = ?",
       [email]
     );
     const user = rows?.[0];
-    if (!user) {
+    if (!user || !user.hash || user.hash.length < 20) {
       return res.status(401).json({ error: "invalid_credentials" });
     }
+    const ok = await verifyPassword(password, user.hash).catch(() => false);
+    if (!ok) return res.status(401).json({ error: "invalid_credentials" });
 
-    // Si el usuario tiene hash vacío/incorrecto (p.ej. creado desde otra API sin password)
-    if (!user.hash || user.hash.length < 20) {
-      return res.status(401).json({ error: "invalid_credentials" });
-    }
-
-    // Comparación segura (si bcrypt falla, tratamos como credenciales inválidas)
-    let ok = false;
-    try {
-      ok = await verifyPassword(password, user.hash);
-    } catch {
-      ok = false;
-    }
-    if (!ok) {
-      return res.status(401).json({ error: "invalid_credentials" });
-    }
-
-    // OK -> emitir token
     const token = signToken({ sub: user.id, email: user.email, nombre: user.nombre });
     return res.json({ token });
   } catch (e) {

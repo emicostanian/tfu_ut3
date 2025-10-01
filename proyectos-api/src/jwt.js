@@ -1,10 +1,5 @@
 import jwt from "jsonwebtoken";
 const SECRET = process.env.JWT_SECRET || "supersecret_dev_only";
-const EXPIRES = process.env.JWT_EXPIRES || "12h";
-
-export function signToken(payload) {
-  return jwt.sign(payload, SECRET, { expiresIn: EXPIRES });
-}
 
 export function authMiddleware(req, res, next) {
   try {

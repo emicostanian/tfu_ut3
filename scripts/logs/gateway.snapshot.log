@@ -1,0 +1,25 @@
+﻿gateway-1  | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+gateway-1  | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+gateway-1  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+gateway-1  | 10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf
+gateway-1  | 10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf
+gateway-1  | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+gateway-1  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+gateway-1  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+gateway-1  | /docker-entrypoint.sh: Configuration complete; ready for start up
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:21:59 +0000] "GET /auth/diag HTTP/1.1" 200 29 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:22:16 +0000] "POST /auth/register HTTP/1.1" 201 51 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:22:26 +0000] "POST /auth/login HTTP/1.1" 200 208 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:22:53 +0000] "GET /health HTTP/1.1" 200 3 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 2025/10/01 01:22:53 [error] 31#31: *1 connect() failed (111: Connection refused) while connecting to upstream, client: 172.20.0.1, server: , request: "GET /auth/diag HTTP/1.1", upstream: "http://172.20.0.4:3000/auth/diag", host: "localhost:8080"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:22:53 +0000] "GET /auth/diag HTTP/1.1" 502 157 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:22:56 +0000] "POST /auth/register HTTP/1.1" 201 60 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:22:56 +0000] "POST /auth/login HTTP/1.1" 200 220 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:22:56 +0000] "GET /auth/me HTTP/1.1" 200 104 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:22:56 +0000] "POST /proyectos/ HTTP/1.1" 404 150 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:25:48 +0000] "GET /proyectos/diag HTTP/1.1" 404 153 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:27:51 +0000] "GET /proyectos/diag HTTP/1.1" 404 153 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:28:12 +0000] "GET /health HTTP/1.1" 200 3 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 2025/10/01 01:28:12 [error] 31#31: *12 connect() failed (111: Connection refused) while connecting to upstream, client: 172.20.0.1, server: , request: "GET /auth/diag HTTP/1.1", upstream: "http://172.20.0.4:3000/auth/diag", host: "localhost:8080"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:28:12 +0000] "GET /auth/diag HTTP/1.1" 502 157 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"
+gateway-1  | 172.20.0.1 - - [01/Oct/2025:01:28:14 +0000] "POST /auth/register HTTP/1.1" 404 153 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; es-UY) WindowsPowerShell/5.1.26100.4768"

@@ -1,0 +1,5 @@
+﻿auth-api-1  | 
+auth-api-1  | > auth-api@1.0.0 start
+auth-api-1  | > node src/index.js
+auth-api-1  | 
+auth-api-1  | auth-api on 3000

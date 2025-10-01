@@ -35,27 +35,18 @@ if (-not (Wait-For-Http200 "$Base/health" $MaxRetries $DelayMs)) {
   Write-Error "Gateway no respondió en tiempo. Revisá: docker compose logs -f gateway"
 }
 
-# === Register con email único por corrida ===
+# 1) Register (idempotente)
 Write-Host "==> Register" -ForegroundColor Green
-$Suffix = [Guid]::NewGuid().ToString("N").Substring(0,6)
-$Email = "linus+$Suffix@example.com"
 try {
-  $reg = Invoke-RestMethod "$Base/auth/register" -Method POST -ContentType 'application/json' -Body (@{
-    nombre = "Linus"
-    email  = $Email
-    password = "secret"
-  } | ConvertTo-Json)
-  if ($reg.id) { Write-Host ("Usuario creado id={0} email={1}" -f $reg.id, $Email) -ForegroundColor DarkGreen }
+  $reg = Invoke-RestMethod "$Base/auth/register" -Method POST -ContentType 'application/json' -Body '{"nombre":"Linus","email":"linus@example.com","password":"secret"}'
+  if ($reg.id) { Write-Host ("Usuario creado id={0}" -f $reg.id) -ForegroundColor DarkGreen }
 } catch {
   Write-Host "Registro omitido (posible email existente)" -ForegroundColor DarkYellow
 }
 
-# === Login usando el email recién registrado ===
+# 2) Login
 Write-Host "==> Login" -ForegroundColor Green
-$login = Invoke-RestMethod "$Base/auth/login" -Method POST -ContentType 'application/json' -Body (@{
-  email = $Email
-  password = "secret"
-} | ConvertTo-Json)
+$login = Invoke-RestMethod "$Base/auth/login" -Method POST -ContentType 'application/json' -Body '{"email":"linus@example.com","password":"secret"}'
 $Token = $login.token
 if (-not $Token) { Write-Error "No se obtuvo token" }
 Write-Host ("TOKEN: {0}" -f $Token.Substring(0,[Math]::Min(16,$Token.Length))) -ForegroundColor DarkCyan
